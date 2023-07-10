@@ -2,7 +2,6 @@
  * Copy me if you can.
  * by 20h
  */
-
 #define _BSD_SOURCE
 #include <unistd.h>
 #include <stdio.h>
@@ -15,11 +14,14 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "ext.h"
+
 #include <X11/Xlib.h>
 
-char *tzargentina = "America/Buenos_Aires";
-char *tzutc = "UTC";
-char *tzberlin = "Europe/Berlin";
+#define TZ "America/New_York"
+#define TZ_CA "America/Los_Angeles"
+#define TZ_JKT "Asia/Jakarta"
+
 
 static Display *dpy;
 
@@ -163,7 +165,42 @@ getbattery(char *base)
 	if (remcap < 0 || descap < 0)
 		return smprintf("invalid");
 
-	return smprintf("%.0f%%%c", ((float)remcap / (float)descap) * 100, status);
+    int bat_val = ((float)remcap / (float)descap) * 100;
+    char* icon = "󰢟";
+    if(status == '-')
+    {
+        icon = 
+            (bat_val >= 95)? "󰁹":
+            (bat_val >= 85)? "󰂂":
+            (bat_val >= 75)? "󰂁":
+            (bat_val >= 65)? "󰂀":
+            (bat_val >= 55)? "󰁿":
+            (bat_val >= 45)? "󰁾":
+            (bat_val >= 35)? "󰁽":
+            (bat_val >= 25)? "󰁼":
+            (bat_val >= 15)? "󰁻":
+            (bat_val >= 10)? "󰁺":
+            (bat_val < 10)?  "󱃍":
+            "󰂑";
+    }
+    else 
+    {
+        icon = 
+            (bat_val >= 95)? "󰂅":
+            (bat_val >= 85)? "󰂋":
+            (bat_val >= 75)? "󰂊":
+            (bat_val >= 65)? "󰢞":
+            (bat_val >= 55)? "󰂉":
+            (bat_val >= 45)? "󰢝":
+            (bat_val >= 35)? "󰂈":
+            (bat_val >= 25)? "󰂇":
+            (bat_val >= 15)? "󰂆":
+            (bat_val >= 10)? "󰢜":
+            (bat_val < 10)?  "󰢟":
+            "󰂑";
+    }
+
+	return smprintf("%.0f%% %s ", ((float)remcap / (float)descap) * 100, icon);
 }
 
 char *
@@ -204,44 +241,40 @@ main(void)
 	char *status;
 	char *avgs;
 	char *bat;
-	char *tmar;
-	char *tmutc;
-	char *tmbln;
-	char *t0;
-	char *t1;
-	char *kbmap;
-	char *surfs;
+	char *tm_home;
+    //char *tm_ca = NULL;
+    char *tm_jkt=NULL;
+    char* ip = NULL;
+    char* usr = NULL;
 
 	if (!(dpy = XOpenDisplay(NULL))) {
 		fprintf(stderr, "dwmstatus: cannot open display.\n");
 		return 1;
 	}
 
-	for (;;sleep(30)) {
+	for (;;sleep(1)) {
 		avgs = loadavg();
-		bat = getbattery("/sys/class/power_supply/BAT0");
-		tmar = mktimes("%H:%M", tzargentina);
-		tmutc = mktimes("%H:%M", tzutc);
-		tmbln = mktimes("KW %W %a %d %b %H:%M %Z %Y", tzberlin);
-		kbmap = execscript("setxkbmap -query | grep layout | cut -d':' -f 2- | tr -d ' '");
-		surfs = execscript("surf-status");
-		t0 = gettemperature("/sys/devices/virtual/thermal/thermal_zone0", "temp");
-		t1 = gettemperature("/sys/devices/virtual/thermal/thermal_zone1", "temp");
+		bat = getbattery("/sys/class/power_supply/BAT1");
+		tm_home = mktimes("󰸗 %d/%m/%Y |  %T", TZ);
+       // tm_ca   = mktimes("Cali  : %T", TZ_CA);
+        tm_jkt  = mktimes("JKT  : %T",TZ_JKT);
+        ip = getipaddr();
+        usr = getlogin();
 
-		status = smprintf("S:%s K:%s T:%s|%s L:%s B:%s A:%s U:%s %s",
-				surfs, kbmap, t0, t1, avgs, bat, tmar, tmutc,
-				tmbln);
+		//= execscript("setxkbmap -query | grep layout | cut -d':' -f 2- | tr -d ' '");
+        //surfs = execscript("surf-status");
+		//t0 = gettemperature("/sys/devices/virtual/thermal/thermal_zone0", "temp");
+		//t1 = gettemperature("/sys/devices/virtual/thermal/thermal_zone1", "temp");
+
+		status = smprintf(
+                " |  %s | %s| %s | %s %s",
+				     usr,  bat,  ip, tm_home, tm_jkt
+                );
 		setstatus(status);
 
-		free(surfs);
-		free(kbmap);
-		free(t0);
-		free(t1);
 		free(avgs);
 		free(bat);
-		free(tmar);
-		free(tmutc);
-		free(tmbln);
+		free(tm_home);
 		free(status);
 	}
 
